@@ -36,10 +36,9 @@ NLP在保险行业中的应用：
 
 4. 删除停用词（ stopwords ）
 
-5. 词性标注（ part-of-speech (POS) tagging ）?? 或者 bag of words?
+5. 词性标注（ part-of-speech (POS) tagging ）
 
 6. 词干提取或词形还原（Stemming or Lemmatization）
-
 
 ## Bag of words
 
@@ -82,6 +81,83 @@ knitr::include_graphics("./plots/7/procedure.png")
 - 数据结构：评论位置代表类别，一个txt存储一个评论数据。 
 
 ### 函数说明
+
+
+1. 格式清理
+引入re包，定义preprocessor函数，该函数的目的是对文本中的非字母数字符号进行剔除，该函数的输出是与原文本对应的字符串，该字符串是由一系列被空格分隔开的单词组成的，并且所有字母都是小写。
+
+```
+import re
+def preprocessor(text):
+    text = re.sub('<[^>]*>', '', text)
+    emoticons = re.findall('(?::|;|=)(?:-)?(?:\)|\(|D|P)', text)
+    text = (re.sub('[\W]+', ' ', text.lower()) +
+            ' '.join(emoticons).replace('-', ''))
+    return text
+
+```
+
+2. 分词
+可以直接调用nltk.tokenize包中的word_tokenize对评论（英文）文本进行分词。
+
+```
+from nltk.tokenize import word_tokenize
+tokens = word_tokenize(text)
+
+```
+3. 删除停止词
+调用nltk包中的stopwords，将上一步得到的单词列表中出现在stopwords中的所有单词删除。
+
+```
+import nltk
+from nltk.corpus import stopwords
+stopwords = list(set(stopwords.words('english')))
+
+filtered_tokens = [word for word in tokens if word not in stopwords]
+
+text_filtered = ' '.join(filtered_tokens)
+
+```
+4. 词性标注
+pos_tag是nltk包中已经训练好的词性标注模型，它的输入为分词后单词列表，列表中的每个元素是一个单词（字符串类型）；它的输出是与输入列表等长的列表，输出列表中的每个元素是一个格式为(word, tag)的元组，其中word为输入列表中的单词，tag为与该单词对应的词性。
+
+```
+from nltk import pos_tag
+nltk.download('averaged_perceptron_tagger')
+
+def pos_tags(text_processed):
+    return "-".join( tag for (word, tag) in nltk.pos_tag(text_processed))
+
+pos_tag = pos_tags(filtered_tokens)
+
+```
+
+5. TfidfVectorizer
+TfidfVectorizer是sklearn中已经训练好的文本向量化模型，它的作用将输入的文本转化为向量，向量的维度是与输入文本对应的词典中单词的个数（即所有不同的单词出现的个数），每个维度对应的值为输入文本中该单词所对应的tfidf值。案例中用TfidfVectorizer实现bag of words和bag of POS两种方法的向量化，以下以bag of POS为例。注意，TfidfVectorizer.fit_transform()函数的输入是一个列表，列表中的每一个元素对应一个处理好的文本（字符串类型），如第3步中得到的'text_filtered'或第四步中得到的'pos_tag'。
+         
+```
+from sklearn.feature_extraction.text import TfidfVectorizer
+import pandas as pd
+
+tfidf = TfidfVectorizer(strip_accents=None,
+                        lowercase=False,
+                        preprocessor=None)
+
+tfidf_wm = tfidf.fit_transform([pos_tag])
+
+``` 
+
+6. word embeddings
+spacy中有训练好的word embeddings方法，如'en_core_web_sm'，'en_core_web_md'，不同模型输出的向量维度和长短不同。
+         
+```
+import spacy
+nlp = spacy.load('en_core_web_sm') 
+
+import numpy as np
+emb = nlp(text_filtered).vector
+
+``` 
 
 ### 可能遇到的问题
 
